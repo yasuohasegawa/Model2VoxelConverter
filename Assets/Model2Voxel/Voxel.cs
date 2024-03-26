@@ -28,6 +28,7 @@ namespace Model2VoxelConverter
 
         public bool isExporting => _isExporting;
         public IVoxel listener { set; get; }
+        public GameObject voxelObj => _advancedMeshAPICube.meshRenderer.gameObject;
 
         private void Awake()
         {
