@@ -21,6 +21,8 @@ Example usage: `_voxel.GenerateVoxel(8 to 60, _targetObj);`
 
 **Not Implemented:**
 - The target model's world and local positions/rotations must be set to `0,0,0`. This feature does not currently adjust based on the target object's transform.
+- The Model with the SkinnedMeshRenderer and bone animation
+- Multiple MeshRenderers
 
 **Partially Implemented:**
 - FBX import feature
