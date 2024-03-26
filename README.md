@@ -14,6 +14,10 @@ Run the project and click the `Generate` button to view the result.
 **Features:**
 - Converts a Voxel model into a single GameObject with a MeshRenderer.
 - Currently supports export to .ply format only.
+- Adjustable Voxel grid size. Note that the generation time varies based on the grid size; extensive testing has been conducted with grid sizes ranging from 8 to 60. 
+
+Example usage: `_voxel.GenerateVoxel(8 to 60, _targetObj);`
+
 
 **Not Implemented:**
 - The target model's world and local positions/rotations must be set to `0,0,0`. This feature does not currently adjust based on the target object's transform.
@@ -36,3 +40,8 @@ Version 2023.2.4f1 and above.
 - Unity Editor
 
 Further device testing will be conducted in the future.
+
+**3D models:**
+The model was provided for the AR contest invented by the Highsnobiety in 2019.
+
+https://www.highsnobiety.com
