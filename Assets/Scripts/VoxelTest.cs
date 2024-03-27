@@ -19,6 +19,7 @@ public class VoxelTest : MonoBehaviour, IVoxel
     [SerializeField] private MeshRenderer _targetObj;
 
     private UnityFBXLoader _loader;
+    private VoxelAnimationTest _voxelAnimationTest = null;
 
     // Start is called before the first frame update
     void Start()
@@ -26,6 +27,8 @@ public class VoxelTest : MonoBehaviour, IVoxel
         _voxel.listener = this;
         _button.onClick.AddListener(GenerateVoxel);
         _exportButton.onClick.AddListener(Export);
+
+        _voxelAnimationTest = GetComponent<VoxelAnimationTest>();
     }
 
     private void GenerateVoxel()
@@ -99,6 +102,10 @@ public class VoxelTest : MonoBehaviour, IVoxel
     public void OnGenerated()
     {
         Debug.Log($">>>>>>[{nameof(VoxelTest)}] OnGenerated");
+        if(_voxelAnimationTest != null)
+        {
+            _voxelAnimationTest.StartAnimation(_voxel.voxelObj);
+        }
     }
 
     public void OnExported()

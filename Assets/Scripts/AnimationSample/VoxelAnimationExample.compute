@@ -1,0 +1,20 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+StructuredBuffer<float3> vertices; // Input vertices
+RWStructuredBuffer<float3> outputVertices; // Output vertices
+float time;
+uint vertexCount;
+
+[numthreads(24,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint index = id.x;
+
+    if (index < vertexCount)
+    {
+        float3 vertex = vertices[index];
+        vertex.y += sin(time*5.0f + vertex.x) * 0.05f+cos(time*6.0f + vertex.z) * 0.05f; // Offset the Y position based on time and X position
+        outputVertices[index] = vertex;
+    }
+}
