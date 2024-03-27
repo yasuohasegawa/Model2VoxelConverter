@@ -41,7 +41,7 @@ namespace Model2VoxelConverter
         }
 
         // [important] Mesh: read/write settings
-        private void CheckTargetObjectMeshSettings()
+        private void ValidateTargetObjectMeshSettings()
         {
             Assert.IsNotNull(_advancedMeshAPICube, "The AdvancedMeshAPICube class reference is missing.");
             Assert.IsNotNull(_targetObj, "The target object reference is missing.");
@@ -70,7 +70,7 @@ namespace Model2VoxelConverter
         {
             _targetObj = targetObj;
 
-            CheckTargetObjectMeshSettings();
+            ValidateTargetObjectMeshSettings();
             Generate(gridSize);
         }
 
