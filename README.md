@@ -14,7 +14,8 @@ Run the project and click the `Generate` button to view the result.
 **Features:**
 - Converts a Voxel model into a single GameObject with a MeshRenderer.
 - Currently supports export to .ply format only.
-- Adjustable Voxel grid size. Note that the generation time varies based on the grid size; extensive testing has been conducted with grid sizes ranging from 8 to 60. 
+- Adjustable Voxel grid size.
+<br>Note that the generation time varies based on the grid size; extensive testing has been conducted with grid sizes ranging from 8 to 60. 
 
 Example usage: `_voxel.GenerateVoxel(8 to 60, _targetObj);`
 
@@ -28,7 +29,7 @@ Example usage: `_voxel.GenerateVoxel(8 to 60, _targetObj);`
 - FBX import feature
 
 **UnityFBXLoader:**
-The UnityFBXLoader is an adaptation of the Three-Fbx-Loader, focusing on extracting geometry data to generate the mesh. 
+The UnityFBXLoader is an adaptation of the Three-Fbx-Loader, focusing on extracting geometry data to generate the mesh. <br>
 Note: This class is experimental and not recommended for production use. However, it serves as a useful starting point for further development based on the Three-Fbx-Loader.
 
 Reference: [Three-Fbx-Loader](https://www.npmjs.com/package/three-fbx-loader?activeTab=code)
@@ -44,6 +45,6 @@ Version 2023.2.4f1 and above.
 Further device testing will be conducted in the future.
 
 **3D models:**
-The model was provided for the AR contest invented by the Highsnobiety in 2019.
+<br>The model was provided for the AR contest invented by the Highsnobiety in 2019.
 
 https://www.highsnobiety.com
