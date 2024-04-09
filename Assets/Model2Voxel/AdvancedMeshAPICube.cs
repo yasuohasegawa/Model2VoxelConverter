@@ -136,6 +136,7 @@ namespace Model2VoxelConverter
 
         public AdvancedMeshAPICube(Material material, Transform parent)
         {
+            if (material == null) return;
             _cubes = new GameObject(nameof(AdvancedMeshAPICube));
             _cubes.transform.SetParent(parent);
             _meshFilter = _cubes.AddComponent<MeshFilter>();

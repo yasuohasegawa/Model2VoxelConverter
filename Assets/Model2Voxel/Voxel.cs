@@ -12,6 +12,8 @@ namespace Model2VoxelConverter
         [SerializeField] private Material _voxelMaterial;
         [SerializeField] private LayerMask _layerHitMask = 1 << 0;
         [SerializeField] private bool _useJob = true;
+        [SerializeField] private bool _useGeometryShader = false;
+        [SerializeField] private GeometryShaderCube _geometryShaderCube;
 
         private AdvancedMeshAPICube _advancedMeshAPICube;
         private MeshRenderer _targetObj;
@@ -132,13 +134,30 @@ namespace Model2VoxelConverter
 
             Debug.Log(datas.Count);
 
-            _advancedMeshAPICube.cubeDatas = new NativeArray<AdvancedMeshAPICube.CubeData>(datas.ToArray(), Allocator.Persistent);
-            _advancedMeshAPICube.RunAllProcess(() =>
+            if (!_useGeometryShader)
             {
-                Debug.Log($">>>>>>[{nameof(Voxel)}] Voxel generated");
-                _targetObj.gameObject.SetActive(false);
-                listener?.OnGenerated();
-            });
+                _advancedMeshAPICube.cubeDatas = new NativeArray<AdvancedMeshAPICube.CubeData>(datas.ToArray(), Allocator.Persistent);
+                _advancedMeshAPICube.RunAllProcess(() =>
+                {
+                    OnGenerated();
+                });
+            } else
+            {
+                if(_geometryShaderCube != null)
+                {
+                    _geometryShaderCube.RunAllProcess(s, datas, () =>
+                    {
+                        OnGenerated();
+                    });
+                }
+            }
+        }
+
+        private void OnGenerated()
+        {
+            Debug.Log($">>>>>>[{nameof(Voxel)}] Voxel generated");
+            _targetObj.gameObject.SetActive(false);
+            listener?.OnGenerated();
         }
 
         [BurstCompatible]
