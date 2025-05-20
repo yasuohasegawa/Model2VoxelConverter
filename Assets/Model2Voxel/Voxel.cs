@@ -14,6 +14,7 @@ namespace Model2VoxelConverter
         [SerializeField] private bool _useJob = true;
         [SerializeField] private bool _useGeometryShader = false;
         [SerializeField] private GeometryShaderCube _geometryShaderCube;
+        [SerializeField] private GPUMeshVoxelizer _gPUMeshVoxelizer;
 
         private CPUMeshVoxelizer _cPUMeshVoxelizer;
         private AdvancedMeshAPICube _advancedMeshAPICube;
@@ -37,6 +38,7 @@ namespace Model2VoxelConverter
         {
             _advancedMeshAPICube = new AdvancedMeshAPICube(_voxelMaterial, this.transform);
             _cPUMeshVoxelizer = new CPUMeshVoxelizer(_advancedMeshAPICube, _spaceBetweenCubes);
+            _gPUMeshVoxelizer.Initialize(_advancedMeshAPICube, _spaceBetweenCubes);
         }
 
         void Start()
@@ -78,7 +80,7 @@ namespace Model2VoxelConverter
             Generate(gridSize);
         }
 
-        public async void ProcessMeshVoxelizer(int size, MeshRenderer targetObj)
+        public async void ProcessCPUMeshVoxelizer(int size, MeshRenderer targetObj)
         {
             _targetObj = targetObj;
 
@@ -88,6 +90,23 @@ namespace Model2VoxelConverter
             sw.Start();
 
             await _cPUMeshVoxelizer.Generate(size, targetObj, OnGenerated);
+
+            if (sw != null)
+            {
+                sw.Stop();
+                Debug.Log($">>>>> {sw.ElapsedMilliseconds / 1000.0f} ms");
+            }
+        }
+
+        public void ProcessGPUMeshVoxelizer(int size, MeshRenderer targetObj)
+        {
+            _targetObj = targetObj;
+            ValidateTargetObjectMeshSettings();
+            System.Diagnostics.Stopwatch sw = null;
+            sw = new System.Diagnostics.Stopwatch();
+            sw.Start();
+
+            _gPUMeshVoxelizer.Generate(size, targetObj, OnGenerated);
 
             if (sw != null)
             {

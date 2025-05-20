@@ -1,0 +1,251 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#define THREAD_GROUP_SIZE 64
+
+struct GPUVoxel {
+    float3 position;
+    float2 uv;
+    uint color;
+};
+
+StructuredBuffer<float3> _vertices;
+StructuredBuffer<float2> _uvs;
+StructuredBuffer<int> _triangles;
+StructuredBuffer<uint> _colors;
+
+int _textureWidth;
+int _textureHeight;
+float3 _scale;
+float _voxelSize;
+int _triangleCount;
+
+AppendStructuredBuffer<GPUVoxel> _voxelBuffer; 
+
+bool OverlapOnAxis(float3 v0, float3 v1, float3 v2, float3 axis, float3 boxHalfSize)
+{
+    float3 p0 = dot(v0, axis);
+    float3 p1 = dot(v1, axis);
+    float3 p2 = dot(v2, axis);
+    float r = boxHalfSize.x * abs(axis.x) + boxHalfSize.y * abs(axis.y) + boxHalfSize.z * abs(axis.z);
+    float minP = min(min(p0, p1), p2);
+    float maxP = max(max(p0, p1), p2);
+    return !(minP > r || maxP < -r);
+}
+
+bool PlaneBoxOverlap(float3 normal, float3 vert, float3 maxBox)
+{
+    float3 vmin = float3(0,0,0);
+    float3 vmax = float3(0,0,0);
+
+    // X-axis
+    if (normal.x > 0.0)
+    {
+        vmin.x = -maxBox.x - vert.x;
+        vmax.x =  maxBox.x - vert.x;
+    }
+    else
+    {
+        vmin.x =  maxBox.x - vert.x;
+        vmax.x = -maxBox.x - vert.x;
+    }
+
+    // Y-axis
+    if (normal.y > 0.0)
+    {
+        vmin.y = -maxBox.y - vert.y;
+        vmax.y =  maxBox.y - vert.y;
+    }
+    else
+    {
+        vmin.y =  maxBox.y - vert.y;
+        vmax.y = -maxBox.y - vert.y;
+    }
+
+    // Z-axis
+    if (normal.z > 0.0)
+    {
+        vmin.z = -maxBox.z - vert.z;
+        vmax.z =  maxBox.z - vert.z;
+    }
+    else
+    {
+        vmin.z =  maxBox.z - vert.z;
+        vmax.z = -maxBox.z - vert.z;
+    }
+
+    return dot(normal, vmin) <= 0.0 || dot(normal, vmax) >= 0.0;
+}
+
+// this will return the uv coordinate based on the vertices.
+float3 GetBarycentricCoordinates(float3 p, float3 a, float3 b, float3 c)
+{
+    float3 v0 = b - a;
+    float3 v1 = c - a;
+    float3 v2 = p - a;
+    float d00 = dot(v0, v0);
+    float d01 = dot(v0, v1);
+    float d11 = dot(v1, v1);
+    float d20 = dot(v2, v0);
+    float d21 = dot(v2, v1);
+    float denom = d00 * d11 - d01 * d01;
+
+    float v = (d11 * d20 - d01 * d21) / denom;
+    float w = (d00 * d21 - d01 * d20) / denom;
+    float u = 1.0f - v - w;
+
+    return float3(u, v, w);
+}
+
+// straight forward to sample the texture color
+uint SampleTexture(float2 uv, int width, int height)
+{
+    int x = int(floor(uv.x * width));
+    int y = int(floor(uv.y * height));
+
+    x = clamp(x, 0, width - 1);
+    y = clamp(y, 0, height - 1);
+
+    return _colors[y * width + x];
+}
+
+bool TriangleIntersectsVoxel(float3 v0, float3 v1, float3 v2, float3 voxelCenter, float voxelSize)
+{
+    float halfSize = voxelSize / 2.0;
+    float3 boxHalfSize = float3(halfSize, halfSize, halfSize);
+
+    // Move triangle to box local space
+    float3 tv0 = v0 - voxelCenter;
+    float3 tv1 = v1 - voxelCenter;
+    float3 tv2 = v2 - voxelCenter;
+
+    // Compute triangle edges
+    float3 e0 = tv1 - tv0;
+    float3 e1 = tv2 - tv1;
+    float3 e2 = tv0 - tv2;
+
+    // 1. Test the 9 edge cross products (triangle edges × box axes)
+    float3 axes[9] = {
+        float3(0, -e0.z, e0.y), float3(0, -e1.z, e1.y), float3(0, -e2.z, e2.y),
+        float3(e0.z, 0, -e0.x), float3(e1.z, 0, -e1.x), float3(e2.z, 0, -e2.x),
+        float3(-e0.y, e0.x, 0), float3(-e1.y, e1.x, 0), float3(-e2.y, e2.x, 0)
+    };
+
+    for (int i = 0; i < 9; i++) {
+        float3 axis = axes[i];
+        if (!OverlapOnAxis(tv0, tv1, tv2, axis, boxHalfSize)) {
+            return false;
+        }
+    }
+
+    // 2. Test overlap in the coordinate axes (X, Y, Z)
+    float minVal = min(min(tv0.x, tv1.x), tv2.x);
+    float maxVal = max(max(tv0.x, tv1.x), tv2.x);
+    if (minVal > boxHalfSize.x || maxVal < -boxHalfSize.x)
+    {
+        return false;
+    }
+
+    minVal = min(min(tv0.y, tv1.y), tv2.y);
+    maxVal = max(max(tv0.y, tv1.y), tv2.y);
+    if (minVal > boxHalfSize.y || maxVal < -boxHalfSize.y)
+    {
+        return false;
+    }
+
+    minVal = min(min(tv0.z, tv1.z), tv2.z);
+    maxVal = max(max(tv0.z, tv1.z), tv2.z);
+    if (minVal > boxHalfSize.z || maxVal < -boxHalfSize.z)
+    {
+        return false;
+    }
+
+    // 3. Test the triangle normal axis
+    float3 normal = cross(e0, e1);
+    if (!PlaneBoxOverlap(normal, tv0, boxHalfSize))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+[numthreads(THREAD_GROUP_SIZE,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint triIdx = id.x;
+    if (triIdx >= _triangleCount) return;
+
+    // Get triangle vertex indices
+    int i0 = _triangles[triIdx * 3 + 0];
+    int i1 = _triangles[triIdx * 3 + 1];
+    int i2 = _triangles[triIdx * 3 + 2];
+
+    float3 v0 = _vertices[i0] * _scale;
+    float3 v1 = _vertices[i1] * _scale;
+    float3 v2 = _vertices[i2] * _scale;
+
+    float2 uv0 = _uvs[i0];
+    float2 uv1 = _uvs[i1];
+    float2 uv2 = _uvs[i2];
+
+    // Compute voxel AABB
+    float3 minB = min(min(v0, v1), v2);
+    float3 maxB = max(max(v0, v1), v2);
+
+    int3 minIdx = int3(floor(minB / _voxelSize));
+    int3 maxIdx = int3(floor(maxB / _voxelSize));
+
+    bool hit = false;
+
+    for (int x = minIdx.x; x <= maxIdx.x; ++x)
+    for (int y = minIdx.y; y <= maxIdx.y; ++y)
+    for (int z = minIdx.z; z <= maxIdx.z; ++z)
+    {
+        float3 center = float3(x, y, z) * _voxelSize + _voxelSize * 0.5;
+
+        if (!TriangleIntersectsVoxel(v0, v1, v2, center, _voxelSize))
+            continue;
+
+        // Barycentric UV
+        float3 b = GetBarycentricCoordinates(center, v0, v1, v2);
+        float2 uv = b.x * uv0 + b.y * uv1 + b.z * uv2;
+
+        // Convert to texel coordinates
+        int2 texelCoord = int2(uv * float2(_textureWidth, _textureHeight));
+        texelCoord = clamp(texelCoord, int2(0,0), int2(_textureWidth - 1, _textureHeight - 1));
+
+        uint pixelIndex = texelCoord.y * _textureWidth + texelCoord.x;
+        uint packedColor = _colors[pixelIndex];
+
+        // Append voxel
+        GPUVoxel voxel;
+        voxel.position = center;
+        voxel.uv = uv;
+        voxel.color = packedColor;
+
+        _voxelBuffer.Append(voxel);
+
+        hit = true;
+    }
+
+    // Fallback: triangle is too small, add center
+    if (!hit)
+    {
+        float3 mid = (v0 + v1 + v2) / 3.0;
+        float3 b = GetBarycentricCoordinates(mid, v0, v1, v2);
+        float2 uv = b.x * uv0 + b.y * uv1 + b.z * uv2;
+
+        int2 texelCoord = int2(uv * float2(_textureWidth, _textureHeight));
+        texelCoord = clamp(texelCoord, int2(0,0), int2(_textureWidth - 1, _textureHeight - 1));
+
+        uint pixelIndex = texelCoord.y * _textureWidth + texelCoord.x;
+        uint packedColor = _colors[pixelIndex];
+
+        GPUVoxel voxel;
+        voxel.position = mid;
+        voxel.uv = uv;
+        voxel.color = packedColor;
+
+        _voxelBuffer.Append(voxel);
+    }
+}

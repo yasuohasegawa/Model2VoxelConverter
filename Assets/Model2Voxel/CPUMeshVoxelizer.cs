@@ -41,7 +41,7 @@ namespace Model2VoxelConverter
             var newUVs = new Dictionary<Vector3Int, Vector2>();
             var newColors = new Dictionary<Vector3Int, Color32>();
 
-            var objScale = targetObj.transform.localScale.x;
+            var objScale = targetObj.transform.localScale;
 
             Debug.Log($">>>> cubeSize:{cubeSize}");
             var datas = new List<AdvancedMeshAPICube.CubeData>();
@@ -55,9 +55,9 @@ namespace Model2VoxelConverter
                     var i1 = triangles[i + 1];
                     var i2 = triangles[i + 2];
 
-                    var v0 = verts[i0] * objScale;
-                    var v1 = verts[i1] * objScale;
-                    var v2 = verts[i2] * objScale;
+                    var v0 = Vector3.Scale(verts[i0], objScale);
+                    var v1 = Vector3.Scale(verts[i1], objScale);
+                    var v2 = Vector3.Scale(verts[i2], objScale);
 
                     var u0 = uvs[i0];
                     var u1 = uvs[i1];
@@ -85,22 +85,6 @@ namespace Model2VoxelConverter
                 _advancedMeshAPICube.Initialize();
                 _advancedMeshAPICube.baseCubeMesh.UpdateSize(cubeSize - _spaceBetweenCubes);
 
-                var minX = int.MaxValue;
-                var maxX = int.MinValue;
-                var minY = int.MaxValue;
-                var maxY = int.MinValue;
-
-                foreach (var color in newColors)
-                {
-                    var vox = color.Key;
-                    minX = Mathf.Min(minX, vox.x);
-                    maxX = Mathf.Max(maxX, vox.x);
-                    minY = Mathf.Min(minY, vox.y);
-                    maxY = Mathf.Max(maxY, vox.y);
-                }
-                var width = maxX - minX;
-                var height = maxY - minY;
-
                 foreach (var color in newColors)
                 {
                     var vox = color.Key;
@@ -115,7 +99,6 @@ namespace Model2VoxelConverter
                     var c = new AdvancedMeshAPICube.CubeData { position = newPos, uv = uv, color = color.Value };
                     datas.Add(c);
                 }
-
             });
 
 
