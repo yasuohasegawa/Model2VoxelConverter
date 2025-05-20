@@ -99,6 +99,12 @@ public class VoxelTest : MonoBehaviour, IVoxel
         _voxel.GenerateVoxel(30, _targetObj);
     }
 
+    [ContextMenu(nameof(ProcessMeshVoxelizer))]
+    private void ProcessMeshVoxelizer()
+    {
+        _voxel.ProcessMeshVoxelizer(60,_targetObj);
+    }
+
     public void OnGenerated()
     {
         Debug.Log($">>>>>>[{nameof(VoxelTest)}] OnGenerated");

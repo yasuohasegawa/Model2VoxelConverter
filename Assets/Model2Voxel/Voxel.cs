@@ -15,12 +15,13 @@ namespace Model2VoxelConverter
         [SerializeField] private bool _useGeometryShader = false;
         [SerializeField] private GeometryShaderCube _geometryShaderCube;
 
+        private CPUMeshVoxelizer _cPUMeshVoxelizer;
         private AdvancedMeshAPICube _advancedMeshAPICube;
         private MeshRenderer _targetObj;
 
         private float _additionalBlocks = 3f;
         private float _spaceBetweenCubes = 0f;
-        private bool _checkGenerationPerf = false;
+        private bool _checkGenerationPerf = true;
         private bool _isExporting = false;
 
         // For now, the library only supports the PLY but we will add more eport fatures later.
@@ -35,6 +36,7 @@ namespace Model2VoxelConverter
         private void Awake()
         {
             _advancedMeshAPICube = new AdvancedMeshAPICube(_voxelMaterial, this.transform);
+            _cPUMeshVoxelizer = new CPUMeshVoxelizer(_advancedMeshAPICube, _spaceBetweenCubes);
         }
 
         void Start()
@@ -76,6 +78,24 @@ namespace Model2VoxelConverter
             Generate(gridSize);
         }
 
+        public async void ProcessMeshVoxelizer(int size, MeshRenderer targetObj)
+        {
+            _targetObj = targetObj;
+
+            ValidateTargetObjectMeshSettings();
+            System.Diagnostics.Stopwatch sw = null;
+            sw = new System.Diagnostics.Stopwatch();
+            sw.Start();
+
+            await _cPUMeshVoxelizer.Generate(size, targetObj, OnGenerated);
+
+            if (sw != null)
+            {
+                sw.Stop();
+                Debug.Log($">>>>> {sw.ElapsedMilliseconds / 1000.0f} ms");
+            }
+        }
+
         private void Generate(float gridSize)
         {
             _targetObj.transform.position = Vector3.zero;
@@ -111,7 +131,7 @@ namespace Model2VoxelConverter
             var texture = _targetObj.material.mainTexture as Texture2D;
             if (texture != null && !texture.isReadable) // enable the read/write
             {
-                texture = GetReadableTexture(texture);
+                texture = VoxelUtils.GetReadableTexture(texture);
             }
 
             var colors = (texture != null) ? texture.GetPixels32() : null;
@@ -160,7 +180,7 @@ namespace Model2VoxelConverter
             listener?.OnGenerated();
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         private List<AdvancedMeshAPICube.CubeData> GenerateVoxelWithDefaultAPI(float s, Vector3 newSize, Vector3 diff, Color32[] colors, int textureWidth, int textureHeight)
         {
             Debug.Log($">>>>>>[{nameof(Voxel)}] GenerateVoxelWithDefaultAPI");
@@ -277,28 +297,6 @@ namespace Model2VoxelConverter
             var index = y * textureWidth + x;
 
             return colors[index];
-        }
-
-        private Texture2D GetReadableTexture(Texture2D source)
-        {
-            var renderTex = RenderTexture.GetTemporary(
-                            source.width,
-                            source.height,
-                            0,
-                            RenderTextureFormat.Default,
-                            RenderTextureReadWrite.Linear);
-
-            Graphics.Blit(source, renderTex);
-
-            var previous = RenderTexture.active;
-            RenderTexture.active = renderTex;
-
-            var readableText = new Texture2D(source.width, source.height);
-            readableText.ReadPixels(new Rect(0, 0, renderTex.width, renderTex.height), 0, 0);
-            readableText.Apply();
-            RenderTexture.active = previous;
-            RenderTexture.ReleaseTemporary(renderTex);
-            return readableText;
         }
 
         public async void ExportPly(string filePath)
