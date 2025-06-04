@@ -3,6 +3,10 @@ The Model2VoxelConverter is a tool designed to transform a single mesh model int
 
 ![Screenshot](screenshots.png)
 
+**Experimnets:**
+- ContextMenu in VoxelTest now includes `ProcessCPUMeshVoxelizer` to generate voxels without raycasting.
+- `ProcessGPUMeshVoxelizer` is the GPU-based version that uses a compute shader for high-performance voxel generation.
+
 **Setup:**
 1. Import the `Model2Voxel` folder into your Unity project.
 2. Attach the `Voxel` class to a GameObject.
