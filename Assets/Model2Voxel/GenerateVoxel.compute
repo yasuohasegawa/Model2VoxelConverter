@@ -18,7 +18,10 @@ int _textureHeight;
 float3 _scale;
 float _voxelSize;
 int _triangleCount;
+int3 _division;
+float3 _gridOrigin;
 
+RWStructuredBuffer<uint> _voxelFlags;
 AppendStructuredBuffer<GPUVoxel> _voxelBuffer; 
 
 bool OverlapOnAxis(float3 v0, float3 v1, float3 v2, float3 axis, float3 boxHalfSize)
@@ -189,22 +192,22 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     float2 uv2 = _uvs[i2];
 
     // Compute voxel AABB
-    float3 minB = min(min(v0, v1), v2);
-    float3 maxB = max(max(v0, v1), v2);
+    float3 minB = min(v0, min(v1, v2)) - _gridOrigin;
+    float3 maxB = max(v0, max(v1, v2)) - _gridOrigin;
 
     int3 minIdx = int3(floor(minB / _voxelSize));
     int3 maxIdx = int3(floor(maxB / _voxelSize));
 
-    bool hit = false;
-
-    for (int x = minIdx.x; x <= maxIdx.x; ++x)
-    for (int y = minIdx.y; y <= maxIdx.y; ++y)
     for (int z = minIdx.z; z <= maxIdx.z; ++z)
+    for (int y = minIdx.y; y <= maxIdx.y; ++y)
+    for (int x = minIdx.x; x <= maxIdx.x; ++x)
     {
-        float3 center = float3(x, y, z) * _voxelSize + _voxelSize * 0.5;
+        float3 center = float3(x, y, z) * _voxelSize + _voxelSize * 0.5 + _gridOrigin;
 
         if (!TriangleIntersectsVoxel(v0, v1, v2, center, _voxelSize))
             continue;
+
+        uint voxelIndex = x * (_division.y * _division.z) + y * _division.z + z;
 
         // Barycentric UV
         float3 b = GetBarycentricCoordinates(center, v0, v1, v2);
@@ -217,35 +220,16 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         uint pixelIndex = texelCoord.y * _textureWidth + texelCoord.x;
         uint packedColor = _colors[pixelIndex];
 
-        // Append voxel
-        GPUVoxel voxel;
-        voxel.position = center;
-        voxel.uv = uv;
-        voxel.color = packedColor;
+        uint prev = 0;
+        InterlockedCompareExchange(_voxelFlags[voxelIndex], 0, 1, prev);
+        if (prev == 0) {
+            // Append voxel
+            GPUVoxel voxel;
+            voxel.position = center;
+            voxel.uv = uv;
+            voxel.color = packedColor;
 
-        _voxelBuffer.Append(voxel);
-
-        hit = true;
-    }
-
-    // Fallback: triangle is too small, add center
-    if (!hit)
-    {
-        float3 mid = (v0 + v1 + v2) / 3.0;
-        float3 b = GetBarycentricCoordinates(mid, v0, v1, v2);
-        float2 uv = b.x * uv0 + b.y * uv1 + b.z * uv2;
-
-        int2 texelCoord = int2(uv * float2(_textureWidth, _textureHeight));
-        texelCoord = clamp(texelCoord, int2(0,0), int2(_textureWidth - 1, _textureHeight - 1));
-
-        uint pixelIndex = texelCoord.y * _textureWidth + texelCoord.x;
-        uint packedColor = _colors[pixelIndex];
-
-        GPUVoxel voxel;
-        voxel.position = mid;
-        voxel.uv = uv;
-        voxel.color = packedColor;
-
-        _voxelBuffer.Append(voxel);
+            _voxelBuffer.Append(voxel);
+        }
     }
 }

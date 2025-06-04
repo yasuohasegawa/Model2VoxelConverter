@@ -16,6 +16,7 @@ public class VoxelTest : MonoBehaviour, IVoxel
     [SerializeField] private Voxel _voxel;
     [SerializeField] private Button _button;
     [SerializeField] private Button _exportButton;
+    [SerializeField] private Button _gpuTestButton;
     [SerializeField] private MeshRenderer _targetObj;
 
     private UnityFBXLoader _loader;
@@ -27,6 +28,7 @@ public class VoxelTest : MonoBehaviour, IVoxel
         _voxel.listener = this;
         _button.onClick.AddListener(GenerateVoxel);
         _exportButton.onClick.AddListener(Export);
+        _gpuTestButton.onClick.AddListener(ProcessGPUMeshVoxelizer);
 
         _voxelAnimationTest = GetComponent<VoxelAnimationTest>();
     }
@@ -108,7 +110,7 @@ public class VoxelTest : MonoBehaviour, IVoxel
     [ContextMenu(nameof(ProcessGPUMeshVoxelizer))]
     private void ProcessGPUMeshVoxelizer()
     {
-        _voxel.ProcessGPUMeshVoxelizer(40, _targetObj);
+        _voxel.ProcessGPUMeshVoxelizer(100, _targetObj);
     }
 
     public void OnGenerated()

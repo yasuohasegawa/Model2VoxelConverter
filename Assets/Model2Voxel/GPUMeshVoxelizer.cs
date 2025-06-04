@@ -25,6 +25,7 @@ namespace Model2VoxelConverter
         private ComputeBuffer _triangleBuffer;
         private ComputeBuffer _colorBuffer;
         private ComputeBuffer _voxelBuffer;
+        private ComputeBuffer _voxelFlagsBuffer;
 
         void Start()
         {
@@ -57,35 +58,33 @@ namespace Model2VoxelConverter
                 packedColors[i] = (uint)(c.r | (c.g << 8) | (c.b << 16) | (c.a << 24));
             }
 
-
             var textureWidth = (texture) ? texture.width : 0;
             var textureHeight = (texture) ? texture.height : 0;
 
             var scale = 1.0f;
             var nowBlockNum = size; // 10:20, 20:40, 30:60, 40:80, 50:100
             var cubeSize = (scale / (float)(nowBlockNum));
-
             var objScale = targetObj.transform.localScale;
 
             Bounds meshBounds = mesh.bounds;
+            Vector3 origin = Vector3.Scale(meshBounds.min, objScale);
             Vector3 bsize = Vector3.Scale(meshBounds.size, objScale);
             Vector3Int voxelGridSize = new Vector3Int(
                 Mathf.CeilToInt(bsize.x / cubeSize),
                 Mathf.CeilToInt(bsize.y / cubeSize),
                 Mathf.CeilToInt(bsize.z / cubeSize)
             );
-
-            int voxelMax = voxelGridSize.x * voxelGridSize.y * voxelGridSize.z * 3;
+            
+            int voxelMax = voxelGridSize.x * voxelGridSize.y * voxelGridSize.z;
 
             Debug.Log($">>>> voxelMax:{voxelMax}");
-
 
             // Create buffers
             _vertexBuffer = new ComputeBuffer(verts.Length, sizeof(float) * 3);
             _uvBuffer = new ComputeBuffer(uvs.Length, sizeof(float) * 2);
             _triangleBuffer = new ComputeBuffer(triangles.Length, sizeof(int));
             _colorBuffer = new ComputeBuffer(packedColors.Length, sizeof(uint));
-
+            _voxelFlagsBuffer = new ComputeBuffer(voxelMax, sizeof(uint), ComputeBufferType.Structured);
 
             int voxelStride = sizeof(float) * 3 + sizeof(float) * 2 + sizeof(uint);
             _voxelBuffer = new ComputeBuffer(voxelMax, voxelStride, ComputeBufferType.Append);
@@ -99,6 +98,9 @@ namespace Model2VoxelConverter
             _triangleBuffer.SetData(triangles);
             _colorBuffer.SetData(packedColors);
 
+            uint[] zeroData = new uint[voxelMax];
+            _voxelFlagsBuffer.SetData(zeroData);
+
             int kernel = _computeShader.FindKernel("CSMain");
             int triangleCount = triangles.Length / 3;
             int threadGroupSize = 64;
@@ -109,13 +111,15 @@ namespace Model2VoxelConverter
             _computeShader.SetBuffer(kernel, "_triangles", _triangleBuffer);
             _computeShader.SetBuffer(kernel, "_colors", _colorBuffer);
             _computeShader.SetBuffer(kernel, "_voxelBuffer", _voxelBuffer);
+            _computeShader.SetBuffer(kernel, "_voxelFlags", _voxelFlagsBuffer);
 
             _computeShader.SetInt("_textureWidth", textureWidth);
             _computeShader.SetInt("_textureHeight", textureHeight);
             _computeShader.SetVector("_scale", objScale);
             _computeShader.SetInt("_triangleCount", triangleCount);
             _computeShader.SetFloat("_voxelSize", cubeSize);
-            
+            _computeShader.SetVector("_division", (Vector3)voxelGridSize);
+            _computeShader.SetVector("_gridOrigin", origin);
 
             _computeShader.Dispatch(kernel, threadGroups, 1, 1);
 
@@ -166,6 +170,7 @@ namespace Model2VoxelConverter
             if (_triangleBuffer != null) _triangleBuffer.Release();
             if (_colorBuffer != null) _colorBuffer.Release();
             if (_voxelBuffer != null) _voxelBuffer.Release();
+            if (_voxelFlagsBuffer != null) _voxelFlagsBuffer.Release();
         }
 
         private void OnDestroy()
